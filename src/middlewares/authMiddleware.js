@@ -1,20 +1,9 @@
 import { HTTPException } from "hono/http-exception";
 import { createHash } from "crypto";
 import bcrypt from "bcrypt";
-// import redis from "redis";
 import "dotenv/config";
 import sql from "../lib/db.js";
 import { getRedis } from "../lib/redis.js";
-
-// const client = redis.createClient({
-//   socket: {
-//     host: process.env.REDIS_HOST,
-//     port: process.env.REDIS_PORT,
-//   },
-// });
-
-// client.on("error", (err) => console.error("Redis Client Error", err));
-// await client.connect();
 
 export const authMiddleware = async (c, next) => {
   const client = await getRedis();

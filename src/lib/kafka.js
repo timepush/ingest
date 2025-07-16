@@ -12,4 +12,20 @@ const connectProducer = async () => {
   await producer.connect();
 };
 
-export { producer, connectProducer };
+const sendToData = async (payload) => {
+  if (!producer) throw new Error("Kafka producer not connected");
+  await producer.send({
+    topic: process.env.KAFKA_DATA_TOPIC,
+    messages: [{ value: JSON.stringify([payload]) }],
+  });
+};
+
+const sendToError = async (payload) => {
+  if (!producer) throw new Error("Kafka producer not connected");
+  await producer.send({
+    topic: process.env.KAFKA_ERROR_TOPIC,
+    messages: [{ value: JSON.stringify([payload]) }],
+  });
+};
+
+export { producer, connectProducer, sendToData, sendToError };

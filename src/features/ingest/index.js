@@ -1,24 +1,24 @@
 import { Hono } from "hono";
 import validation from "./validation";
-import { producer } from "../../lib/kafka";
+import { sendToData } from "../../lib/kafka";
 import "dotenv/config";
 
 const ingestRoute = new Hono();
 
 ingestRoute.post("/raw", validation, async (c) => {
   const payload = await c.req.json();
-
-  try {
-    await producer.send({
-      topic: process.env.KAFKA_DATA_TOPIC,
-      messages: [{ value: JSON.stringify([payload]) }],
-    });
-
-    return c.json({ message: "Data sent to timepush-data topic successfully", payload });
-  } catch (error) {
-    console.error("Error sending to Kafka:", error);
-    return c.json({ error: "Failed to send data" }, 500);
+  const datasourceId = c.get("datasource_id");
+  if (!datasourceId) {
+    throw new HTTPException(500, { message: "Missing datasource context client_id" });
   }
+
+  const message = {
+    datasource_id: datasourceId,
+    ...payload,
+  };
+
+  await sendToData(message);
+  return c.json({ message: "Data sent to timepush-data topic successfully" });
 });
 
 export default ingestRoute;
