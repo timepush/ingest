@@ -8,6 +8,10 @@ const schema = z.object({
   status: z.number().int().optional(),
 });
 
-const validation = zValidator("json", schema);
+const validation = zValidator("json", schema, (result, c) => {
+  if (!result.success) {
+    throw result.error; // Make sure error is thrown so errorHandler can catch it
+  }
+});
 
 export default validation;
