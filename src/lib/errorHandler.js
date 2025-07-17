@@ -18,7 +18,6 @@ export async function handleError(err, c) {
 
   try {
     var payload = await c.req.json();
-    console.log("Error occurred:", payload);
     await sendToError({
       error_descr: errorMessage,
       raw_message: JSON.stringify(payload || null),

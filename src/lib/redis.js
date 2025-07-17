@@ -1,23 +1,33 @@
 import { createClient } from "redis";
 import "dotenv/config";
 
-const client = createClient({
-  socket: {
-    host: process.env.REDIS_HOST,
-    port: Number(process.env.REDIS_PORT),
-  },
-});
-client.on("error", (err) => console.error("Redis Client Error", err));
+let client = null;
+let isReady = false;
 
-export async function getRedis() {
-  if (!client.isOpen) {
-    try {
-      await client.connect();
-      console.log("Connected to Redis");
-    } catch (e) {
-      console.error("Redis connection failed:", e);
-      // decide: process.exit(1) or continue without cache
-    }
+export async function getRedisClient() {
+  if (client && isReady) return client;
+
+  client = createClient({
+    socket: {
+      host: process.env.REDIS_HOST || "127.0.0.1",
+      port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+      reconnectStrategy: () => new Error("No reconnect: fail fast on disconnect"),
+    },
+  });
+
+  client.on("error", () => {
+    isReady = false;
+  });
+  client.on("ready", () => {
+    isReady = true;
+  });
+
+  try {
+    await client.connect();
+    isReady = true;
+    return client;
+  } catch {
+    isReady = false;
+    throw new Error("Redis connection failed");
   }
-  return client;
 }

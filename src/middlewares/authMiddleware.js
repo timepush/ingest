@@ -3,10 +3,10 @@ import { createHash } from "crypto";
 import bcrypt from "bcrypt";
 import "dotenv/config";
 import sql from "../lib/db.js";
-import { getRedis } from "../lib/redis.js";
+import { getRedisClient } from "../lib/redis.js";
 
 export const authMiddleware = async (c, next) => {
-  const client = await getRedis();
+  const client = await getRedisClient();
   const authHeader = c.req.header("Authorization") || "";
   const clientId = c.req.header("X-Client-ID");
   if (!authHeader.startsWith("Bearer ") || !clientId) {
