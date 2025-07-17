@@ -1,3 +1,4 @@
+import { log } from "console";
 import { sendToError } from "./kafka.js";
 import { HTTPException } from "hono/http-exception";
 
@@ -16,13 +17,12 @@ export async function handleError(err, c) {
   }
 
   try {
+    var payload = await c.req.json();
+    console.log("Error occurred:", payload);
     await sendToError({
-      message: errorMessage,
-      stack: err.stack,
-      path: c.req.path,
-      method: c.req.method,
-      status: err.status || 500,
-      timestamp: new Date().toISOString(),
+      error_descr: errorMessage,
+      raw_message: JSON.stringify(payload || null),
+      error_time: new Date().toISOString(),
       datasource_id: c.get("datasource_id") || null,
     });
   } catch (kafkaErr) {
