@@ -31,3 +31,10 @@ export async function getRedisClient() {
     throw new Error("Redis connection failed");
   }
 }
+
+export async function closeRedisClient() {
+  if (client && isReady) {
+    console.log("Closing Redis client…");
+    await client.quit();
+  }
+}

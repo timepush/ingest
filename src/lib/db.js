@@ -9,11 +9,4 @@ const sql = postgres(process.env.DATABASE_URL, {
   // ssl: { rejectUnauthorized: false } if you need SSL
 });
 
-// Graceful shutdown: close all connections on exit
-process.on("SIGINT", async () => {
-  console.log("Closing postgres.js client…");
-  await sql.end();
-  process.exit(0);
-});
-
 export default sql;

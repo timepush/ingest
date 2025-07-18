@@ -46,3 +46,10 @@ export async function sendToError(payload) {
   if (!KAFKA_ERROR_TOPIC) throw new Error("KAFKA_ERROR_TOPIC is not defined");
   return sendMessage(KAFKA_ERROR_TOPIC, payload);
 }
+
+export async function closeProducer() {
+  if (isProducerConnected) {
+    await producer.disconnect();
+    isProducerConnected = false;
+  }
+}

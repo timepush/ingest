@@ -12,6 +12,7 @@
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.0",
     "hono": "^4.8.5",
+    "http-graceful-shutdown": "^3.1.14",
     "kafkajs": "^2.2.4",
     "postgres": "^3.4.7",
     "redis": "^5.6.0"
