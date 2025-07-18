@@ -1,11 +1,9 @@
-import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 import ApiRouter from "./router.js";
 import { handleError } from "./lib/errorHandler.js";
 import { testConnections, closeConnections } from "./lib/connections.js";
-import GracefulShutdown from "http-graceful-shutdown";
 
 const app = new Hono({ strict: false });
 
@@ -19,4 +17,7 @@ app.notFound((c) => c.json({ status: 404, ok: false, message: "Not Found" }));
 await testConnections();
 
 // Start the server
-serve({ fetch: app.fetch, port: 3000 }, (info) => console.log(`Server is running on http://localhost:${info.port}`));
+export default {
+  port: 3000,
+  fetch: app.fetch,
+};

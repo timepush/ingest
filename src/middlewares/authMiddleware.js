@@ -1,6 +1,6 @@
 import { HTTPException } from "hono/http-exception";
 import { createHash } from "crypto";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import "dotenv/config";
 import sql from "../lib/db.js";
 import { getRedisClient } from "../lib/redis.js";

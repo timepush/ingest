@@ -18,7 +18,7 @@ ingestRoute.post("/raw", validation, async (c) => {
   };
 
   await sendToData(message);
-  console.log("Data sent to timepush-data topic:", message);
+  console.log("Data sent to timepush-data topic");
   return c.json({ message: "Data sent to timepush-data topic successfully" });
 });
 

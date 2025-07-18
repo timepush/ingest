@@ -2,24 +2,20 @@
   "name": "ingest",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.js",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "dev": "bun run --hot src/index.js",
+    "build": "bun build src/index.js --target bun --outdir dist"
   },
   "dependencies": {
     "@hono/node-server": "^1.16.0",
     "@hono/zod-validator": "^0.7.1",
-    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.0",
     "hono": "^4.8.5",
-    "http-graceful-shutdown": "^3.1.14",
     "kafkajs": "^2.2.4",
     "postgres": "^3.4.7",
     "redis": "^5.6.0"
   },
   "devDependencies": {
-    "@types/node": "^20.11.17",
-    "tsx": "^4.7.1",
-    "typescript": "^5.8.3"
+    "@types/bun": "latest"
   }
 }
