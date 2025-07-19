@@ -1,12 +1,14 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
+import { timing } from "hono/timing";
 import ApiRouter from "./router.js";
 import { handleError } from "./lib/errorHandler.js";
 import { testConnections, closeConnections } from "./lib/connections.js";
 
 const app = new Hono({ strict: false });
 
+app.use(timing());
 app.use(logger());
 app.use("*", cors({ origin: "*" }));
 app.onError(handleError);

@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { setMetric, startTime, endTime } from "hono/timing";
 import validation from "./validation";
 import { sendToData } from "../../lib/kafka";
 import "dotenv/config";
@@ -17,7 +18,9 @@ ingestRoute.post("/raw", validation, async (c) => {
     ...payload,
   };
 
+  startTime(c, "kafka");
   await sendToData(message);
+  endTime(c, "kafka");
   console.log("Data sent to timepush-data topic");
   return c.json({ message: "Data sent to timepush-data topic successfully" });
 });

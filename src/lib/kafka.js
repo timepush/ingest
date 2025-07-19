@@ -1,11 +1,16 @@
-// kafkaWrapper.js
-// A simple function-based singleton for KafkaJS producer with fast-fail on startup
+// kafkaBatcher.js
+// In-memory batching wrapper around KafkaJS producer supporting data and error topics with gzip compression
 import "dotenv/config";
-import { Kafka, logLevel } from "kafkajs";
+import { Kafka, CompressionTypes, logLevel } from "kafkajs";
 
-// Environment-configurable defaults
+// Load environment-configurable defaults
 const { KAFKA_CLIENT_ID = "timepush-ingest-api", KAFKA_BROKER = "localhost:9092", KAFKA_CONN_TIMEOUT = "1000", KAFKA_REQ_TIMEOUT = "3000", KAFKA_RETRIES = "0", KAFKA_DATA_TOPIC, KAFKA_ERROR_TOPIC } = process.env;
 
+if (!KAFKA_DATA_TOPIC || !KAFKA_ERROR_TOPIC) {
+  throw new Error("Both KAFKA_DATA_TOPIC and KAFKA_ERROR_TOPIC must be defined in environment");
+}
+
+// Initialize Kafka client and producer
 const kafka = new Kafka({
   clientId: KAFKA_CLIENT_ID,
   brokers: [KAFKA_BROKER],
@@ -15,38 +20,72 @@ const kafka = new Kafka({
   logLevel: logLevel.ERROR,
 });
 
-const producer = kafka.producer();
+const producer = kafka.producer({ allowAutoTopicCreation: false });
 let isProducerConnected = false;
 
-export async function connectProducer() {
-  if (isProducerConnected) return;
-  try {
-    await Promise.race([producer.connect(), new Promise((_, reject) => setTimeout(() => reject(new Error("Kafka producer connect timeout")), 1000))]);
+// Batch buffers and controls for data and error topics
+const dataBuffer = [];
+const errorBuffer = [];
+const MAX_BATCH_SIZE = 100; // messages per batch
+const MAX_BATCH_TIME_MS = 200; // ms before flush if batch not full
+
+let dataFlushTimer = null;
+let errorFlushTimer = null;
+
+// Ensure single producer connection
+export async function ensureConnected() {
+  if (!isProducerConnected) {
+    await producer.connect();
     isProducerConnected = true;
-  } catch (err) {
-    throw new Error("Kafka producer unavailable");
   }
 }
 
-async function sendMessage(topic, payload) {
-  await connectProducer();
-  return producer.send({
-    topic,
-    messages: [{ value: JSON.stringify(payload) }],
-  });
+// Generic flush helper
+async function flushBatch(topic, buffer, timerRef) {
+  if (timerRef.current) {
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
+  if (buffer.length === 0) return;
+  const batch = buffer.splice(0, buffer.length);
+  try {
+    await producer.send({
+      topic,
+      compression: CompressionTypes.GZIP,
+      messages: batch,
+    });
+  } catch (err) {
+    console.error(`Failed to send Kafka batch to ${topic}:`, err);
+    // TODO: decide on retry or drop logic for production
+  }
 }
 
+// Exported: queue a data message
 export async function sendToData(payload) {
-  if (!KAFKA_DATA_TOPIC) throw new Error("KAFKA_DATA_TOPIC is not defined");
-  return sendMessage(KAFKA_DATA_TOPIC, payload);
+  await ensureConnected();
+  dataBuffer.push({ value: JSON.stringify(payload) });
+  if (dataBuffer.length >= MAX_BATCH_SIZE) {
+    await flushBatch(KAFKA_DATA_TOPIC, dataBuffer, { current: dataFlushTimer });
+  } else if (!dataFlushTimer) {
+    dataFlushTimer = setTimeout(() => flushBatch(KAFKA_DATA_TOPIC, dataBuffer, { current: dataFlushTimer }), MAX_BATCH_TIME_MS);
+  }
 }
 
+// Exported: queue an error message
 export async function sendToError(payload) {
-  if (!KAFKA_ERROR_TOPIC) throw new Error("KAFKA_ERROR_TOPIC is not defined");
-  return sendMessage(KAFKA_ERROR_TOPIC, payload);
+  await ensureConnected();
+  errorBuffer.push({ value: JSON.stringify(payload) });
+  if (errorBuffer.length >= MAX_BATCH_SIZE) {
+    await flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, { current: errorFlushTimer });
+  } else if (!errorFlushTimer) {
+    errorFlushTimer = setTimeout(() => flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, { current: errorFlushTimer }), MAX_BATCH_TIME_MS);
+  }
 }
 
+// Flush remaining messages and disconnect producer
 export async function closeProducer() {
+  await flushBatch(KAFKA_DATA_TOPIC, dataBuffer, { current: dataFlushTimer });
+  await flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, { current: errorFlushTimer });
   if (isProducerConnected) {
     await producer.disconnect();
     isProducerConnected = false;
