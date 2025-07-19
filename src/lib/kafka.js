@@ -1,6 +1,5 @@
 // kafkaWrapper.js
 // A simple function-based singleton for KafkaJS producer with fast-fail on startup
-
 import "dotenv/config";
 import { Kafka, logLevel } from "kafkajs";
 
