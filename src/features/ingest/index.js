@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { setMetric, startTime, endTime } from "hono/timing";
+import { startTime, endTime } from "hono/timing";
 import validation from "./validation";
 import { sendToData } from "../../lib/kafka";
 import "dotenv/config";

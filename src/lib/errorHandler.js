@@ -4,24 +4,12 @@ import { HTTPException } from "hono/http-exception";
 
 export async function handleError(err, c) {
   let errorMessage = err.message;
-  // Special handling for ZodError (from zod-validator)
-  if (err.name === "ZodError" && err.message) {
-    try {
-      const parsed = JSON.parse(err.message);
-      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].message) {
-        errorMessage = parsed[0].message;
-      }
-    } catch (_) {
-      // fallback to original message
-    }
-  }
-
   try {
     var payload = await c.req.json();
     await sendToError({
-      error_descr: errorMessage,
-      raw_message: JSON.stringify(payload || null),
-      error_time: new Date().toISOString(),
+      description: errorMessage,
+      payload: JSON.stringify(payload || null),
+      occurred_at: new Date().toISOString(),
       datasource_id: c.get("datasource_id") || null,
     });
   } catch (kafkaErr) {
