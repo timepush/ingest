@@ -19,9 +19,9 @@ export const authMiddleware = async (c, next) => {
 
   const cacheKey = `ds:client:${clientId}:fp:${fp}`;
   startTime(c, "redis_get");
-  let datasourceId = await client.get(cacheKey);
+  let dataSourceId = await client.get(cacheKey);
   endTime(c, "redis_get");
-  if (!datasourceId) {
+  if (!dataSourceId) {
     startTime(c, "postgres");
     const rows = await sql`
         SELECT id, client_secret_hash
@@ -39,12 +39,12 @@ export const authMiddleware = async (c, next) => {
       throw new HTTPException(401, { message: "Invalid client_secret" });
     }
 
-    datasourceId = id.toString();
+    dataSourceId = id.toString();
     startTime(c, "redis_set");
-    await client.set(cacheKey, datasourceId, { EX: 3600 });
+    await client.set(cacheKey, dataSourceId, { EX: 3600 });
     endTime(c, "redis_set");
   }
 
-  c.set("datasource_id", datasourceId);
+  c.set("data_source_id", dataSourceId);
   return next();
 };

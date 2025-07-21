@@ -10,7 +10,7 @@ export async function handleError(err, c) {
       description: errorMessage,
       payload: JSON.stringify(payload || null),
       occurred_at: new Date().toISOString(),
-      datasource_id: c.get("datasource_id") || null,
+      data_source_id: c.get("data_source_id") || null,
     });
   } catch (kafkaErr) {
     console.error("Failed to send error to Kafka:", kafkaErr);

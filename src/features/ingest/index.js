@@ -8,13 +8,13 @@ const ingestRoute = new Hono();
 
 ingestRoute.post("/raw", validation, async (c) => {
   const payload = await c.req.json();
-  const datasourceId = c.get("datasource_id");
-  if (!datasourceId) {
+  const dataSourceId = c.get("data_source_id");
+  if (!dataSourceId) {
     throw new HTTPException(500, { message: "Missing datasource context client_id" });
   }
 
   const message = {
-    datasource_id: datasourceId,
+    data_source_id: dataSourceId,
     ...payload,
   };
 
