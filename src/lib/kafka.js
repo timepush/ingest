@@ -4,7 +4,7 @@ import "dotenv/config";
 import { Kafka, CompressionTypes, logLevel } from "kafkajs";
 
 // Load environment-configurable defaults
-const { KAFKA_CLIENT_ID = "timepush-ingest-api", KAFKA_BROKER = "localhost:9092", KAFKA_CONN_TIMEOUT = "1000", KAFKA_REQ_TIMEOUT = "3000", KAFKA_RETRIES = "0", KAFKA_DATA_TOPIC, KAFKA_ERROR_TOPIC } = process.env;
+const { KAFKA_CLIENT_ID = "timepush-ingest-api", KAFKA_BROKER = "localhost:9092", KAFKA_CONN_TIMEOUT = "1000", KAFKA_REQ_TIMEOUT = "1000", KAFKA_RETRIES = "0", KAFKA_DATA_TOPIC, KAFKA_ERROR_TOPIC } = process.env;
 
 if (!KAFKA_DATA_TOPIC || !KAFKA_ERROR_TOPIC) {
   throw new Error("Both KAFKA_DATA_TOPIC and KAFKA_ERROR_TOPIC must be defined in environment");
@@ -56,7 +56,6 @@ async function flushBatch(topic, buffer, timerRef) {
     });
   } catch (err) {
     console.error(`Failed to send Kafka batch to ${topic}:`, err);
-    // TODO: decide on retry or drop logic for production
   }
 }
 
