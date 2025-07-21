@@ -4,22 +4,23 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "node",
+      "type": "bun",
+      "internalConsoleOptions": "neverOpen",
       "request": "launch",
-      "name": "Launch Hono App",
-      // "program": "${workspaceFolder}/src/index.js",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "debug"
-      ],
-      "runtimeExecutable": "npm",
-      "env": {
-        "NODE_ENV": "development"
-      },
-      "skipFiles": [
-        "<node_internals>/**"
-      ]
+      "name": "Debug File",
+      "program": "${workspaceFolder}\\src\\index.js",
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false,
+      "watchMode": false,
+      "noDebug": false,
+    },
+    {
+      "type": "bun",
+      "internalConsoleOptions": "neverOpen",
+      "request": "attach",
+      "name": "Attach Bun",
+      "url": "ws://localhost:6499/",
+      "stopOnEntry": false
     }
   ]
 }
