@@ -3,7 +3,9 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --hot src/index.js",
-    "build": "bun build src/index.js --target bun --outdir dist"
+    "build": "bun build src/index.js --target bun --outdir dist",
+    "docker:down": "docker-compose down",
+    "docker:up": "docker-compose up -d --build"
   },
   "dependencies": {
     "@hono/node-server": "^1.16.0",

@@ -4,7 +4,7 @@ services:
   api:
     build: .
     env_file:
-      - .env
+      - .env.docker
     expose:
       - "3000"
   nginx:
