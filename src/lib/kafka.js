@@ -40,11 +40,18 @@ export async function ensureConnected() {
   }
 }
 
-// Generic flush helper
-async function flushBatch(topic, buffer, timerRef) {
-  if (timerRef.current) {
-    clearTimeout(timerRef.current);
-    timerRef.current = null;
+// Generic flush helper (fix timer management)
+async function flushBatch(topic, buffer, timerName) {
+  if (timerName === "data") {
+    if (dataFlushTimer) {
+      clearTimeout(dataFlushTimer);
+      dataFlushTimer = null;
+    }
+  } else if (timerName === "error") {
+    if (errorFlushTimer) {
+      clearTimeout(errorFlushTimer);
+      errorFlushTimer = null;
+    }
   }
   if (buffer.length === 0) return;
   const batch = buffer.splice(0, buffer.length);
@@ -64,9 +71,9 @@ export async function sendToData(payload) {
   await ensureConnected();
   dataBuffer.push({ value: JSON.stringify(payload) });
   if (dataBuffer.length >= MAX_BATCH_SIZE) {
-    await flushBatch(KAFKA_DATA_TOPIC, dataBuffer, { current: dataFlushTimer });
+    await flushBatch(KAFKA_DATA_TOPIC, dataBuffer, "data");
   } else if (!dataFlushTimer) {
-    dataFlushTimer = setTimeout(() => flushBatch(KAFKA_DATA_TOPIC, dataBuffer, { current: dataFlushTimer }), MAX_BATCH_TIME_MS);
+    dataFlushTimer = setTimeout(() => flushBatch(KAFKA_DATA_TOPIC, dataBuffer, "data"), MAX_BATCH_TIME_MS);
   }
 }
 
@@ -75,16 +82,16 @@ export async function sendToError(payload) {
   await ensureConnected();
   errorBuffer.push({ value: JSON.stringify(payload) });
   if (errorBuffer.length >= MAX_BATCH_SIZE) {
-    await flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, { current: errorFlushTimer });
+    await flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, "error");
   } else if (!errorFlushTimer) {
-    errorFlushTimer = setTimeout(() => flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, { current: errorFlushTimer }), MAX_BATCH_TIME_MS);
+    errorFlushTimer = setTimeout(() => flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, "error"), MAX_BATCH_TIME_MS);
   }
 }
 
 // Flush remaining messages and disconnect producer
 export async function closeProducer() {
-  await flushBatch(KAFKA_DATA_TOPIC, dataBuffer, { current: dataFlushTimer });
-  await flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, { current: errorFlushTimer });
+  await flushBatch(KAFKA_DATA_TOPIC, dataBuffer, "data");
+  await flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, "error");
   if (isProducerConnected) {
     await producer.disconnect();
     isProducerConnected = false;

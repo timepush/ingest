@@ -21,6 +21,7 @@ ingestRoute.post("/raw", validation, async (c) => {
   startTime(c, "kafka");
   await sendToData(message);
   endTime(c, "kafka");
+  console.log({ value: JSON.stringify(message) });
   console.log("Data queued in timepush-data kafka topic");
   return c.json({ message: "Data queued in timepush-data kafka topic" });
 });
