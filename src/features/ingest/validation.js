@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
 import { HTTPException } from "hono/http-exception";
+import { BAD_REQUEST } from "@/lib/http-status-codes.js";
 
 const schema = z.object({
   timestamp: z.iso.datetime({ message: "Must be a valid ISO 8601 timestamp ending with Z to indicate UTC" }),
@@ -18,7 +19,7 @@ const validation = zValidator("json", schema, (result, c) => {
       Object.values(fieldErrors).find((arr) => arr.length)?.[0] ??
       // 3) or fallback
       "Validation failed. Could not parse the error message";
-    throw new HTTPException(400, { message });
+    throw new HTTPException(BAD_REQUEST, { message });
   }
 });
 

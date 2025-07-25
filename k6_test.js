@@ -6,7 +6,6 @@ import { Trend } from "k6/metrics";
 export let redisGetTrend = new Trend("server_timing_redis_get", true);
 export let redisSetTrend = new Trend("server_timing_redis_set", true);
 export let postgresTrend = new Trend("server_timing_postgres", true);
-export let kafkaTrend = new Trend("server_timing_kafka", true);
 
 export let options = {
   scenarios: {
@@ -31,12 +30,11 @@ export let options = {
     server_timing_redis_get: ["p(95)<50"],
     server_timing_redis_set: ["p(95)<50"],
     server_timing_postgres: ["p(95)<50"],
-    server_timing_kafka: ["p(95)<20"],
   },
 };
 
 export default function () {
-  const url = "http://localhost:8080/ingest/raw";
+  const url = "http://localhost:5000/ingest/raw";
   const payload = JSON.stringify({
     timestamp: new Date().toISOString(),
     value: Math.random() * 100,
@@ -70,8 +68,6 @@ export default function () {
           redisSetTrend.add(dur);
         } else if (name === "postgres") {
           postgresTrend.add(dur);
-        } else if (name === "kafka") {
-          kafkaTrend.add(dur);
         }
       });
   }

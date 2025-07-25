@@ -1,12 +1,19 @@
 import { SQL } from "bun";
-import "dotenv/config";
+import env from "@/env";
 
-// Create a postgres.js client with pooling & timeouts
-const sql = SQL({
-  url: process.env.DATABASE_URL,
+export const sql = SQL({
+  url: env.DATABASE_URL,
   max: 30, // pool size
   idleTimeout: 30, // seconds before idle connection closes
   connectTimeout: 5, // seconds for initial connect
 });
 
-export default sql;
+export async function initDb() {
+  try {
+    await sql`SELECT 1`;
+    console.info("✅ Connected to Database");
+  } catch (err) {
+    console.error("Database connection failed:", err);
+    throw err;
+  }
+}

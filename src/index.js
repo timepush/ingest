@@ -1,25 +1,20 @@
-import { Hono } from "hono";
-import { logger } from "hono/logger";
-import { cors } from "hono/cors";
-import { timing } from "hono/timing";
-import ApiRouter from "./router.js";
-import { handleError } from "./lib/errorHandler.js";
-import { testConnections, closeConnections } from "./lib/connections.js";
+import { serve } from "@hono/node-server";
+import { initRedis } from "@/lib/redis";
+import { initKafka } from "@/lib/kafka";
+import { initDb } from "@/lib/db";
+import logger from "@/lib/logger";
 
-const app = new Hono({ strict: false });
+import { app, kafkaMetrics, redisMetrics } from "@/app";
+import env from "@/env";
 
-app.use(timing());
-app.use(logger());
-app.use("*", cors({ origin: "*" }));
-app.onError(handleError);
-app.route("", ApiRouter);
-app.notFound((c) => c.json({ status: 404, ok: false, message: "Not Found" }));
+await initDb();
+await initRedis({ logger, metrics: redisMetrics });
+await initKafka({ logger, metrics: kafkaMetrics });
 
-// Makes sure postgres, redis, and kafka are up and running
-await testConnections();
+const port = 3000;
+console.log(`Server is running on port http://localhost:${port}`);
 
-// Start the server
-export default {
-  port: 3000,
+serve({
   fetch: app.fetch,
-};
+  port,
+});

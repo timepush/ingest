@@ -1,83 +1,83 @@
-// redisClient.js
-// Improved Redis client with exponential backoff reconnect, TCP keep-alive, and fast-path sync
 import { createClient } from "redis";
-import "dotenv/config";
+import env from "@/env";
 
-let client = null;
-let isReady = false;
-let connectPromise = null;
+let clientPromise;
+let metrics;
+let logger;
 
-/**
- * Returns a connected Redis client, reusing a single instance.
- * Implements fast-path sync return when already connected,
- * and exponential-backoff reconnect strategy on failures.
- */
-export function getRedisClient() {
-  // Fast-path: already connected
-  if (client && isReady) {
-    return client;
-  }
+export async function initRedis({ metrics: injectedMetrics, logger: injectedLogger } = {}) {
+  metrics = injectedMetrics;
+  logger = injectedLogger || console;
 
-  // If a connection is in progress, return its promise
-  if (connectPromise) {
-    return connectPromise;
-  }
+  if (!clientPromise) {
+    clientPromise = (async () => {
+      const { REDIS_HOST, REDIS_PORT } = env;
+      if (!REDIS_HOST || !REDIS_PORT) {
+        console.error("REDIS_HOST or REDIS_PORT not set – cannot connect to Redis.");
+        process.exit(1);
+      }
 
-  // Otherwise, initiate a new connection
-  connectPromise = (async () => {
-    client = createClient({
-      socket: {
-        host: process.env.REDIS_HOST || "127.0.0.1",
-        port: parseInt(process.env.REDIS_PORT, 10) || 6379,
-        // OS-level TCP keep-alive
-        keepAlive: true,
-        // Exponential backoff for reconnect attempts
-        reconnectStrategy: (retries) => {
-          // Wait 50ms, 100ms, 150ms, ... up to max 500ms
-          const delay = Math.min(retries * 50, 500);
-          console.warn(`Redis reconnect attempt #${retries} in ${delay}ms`);
-          return delay;
-        },
-      },
-    });
+      const client = createClient({
+        socket: { host: REDIS_HOST, port: Number(REDIS_PORT) },
+      });
 
-    client.on("error", (err) => {
-      console.error("Redis client error:", err);
-      isReady = false;
-    });
-    client.on("ready", () => {
-      console.log("Redis client ready");
-      isReady = true;
-    });
+      // Fail fast on any Redis error
+      client.on("error", (err) => {
+        console.error("Redis error – shutting down:", err);
+        process.exit(1);
+      });
 
-    try {
-      await client.connect();
-      isReady = true;
-      connectPromise = null; // clear for future reconnects
+      // Initial connect
+      try {
+        await client.connect();
+        console.info("✅ Connected to Redis");
+      } catch (err) {
+        console.error("Failed to connect to Redis – shutting down:", err);
+        process.exit(1);
+      }
+
       return client;
-    } catch (err) {
-      isReady = false;
-      connectPromise = null;
-      console.error("Redis connection failed:", err);
-      throw err;
-    }
-  })();
+    })();
+  }
 
-  return connectPromise;
+  // Wait for connection before proceeding
+  await clientPromise;
 }
 
-/**
- * Gracefully close the Redis client if connected
- */
-export async function closeRedisClient() {
-  if (client && isReady) {
-    console.log("Closing Redis client…");
-    try {
-      await client.quit();
-    } catch (err) {
-      console.error("Error closing Redis client:", err);
-    }
-    client = null;
-    isReady = false;
+export async function shutdownRedis() {
+  const client = await getRedisClient();
+  try {
+    await client.quit();
+    console.info("✅ Redis connection closed");
+  } catch (err) {
+    console.error("Error closing Redis connection:", err);
+    process.exit(1);
   }
 }
+
+export const getRedisClient = async () => {
+  const client = await clientPromise;
+
+  return new Proxy(client, {
+    get(target, prop) {
+      const orig = target[prop];
+      if (typeof orig !== "function") return orig;
+
+      return async (...args) => {
+        const cmd = String(prop).toUpperCase();
+        const endTimer = metrics?.redisCommandLatency.startTimer({ command: cmd });
+        metrics?.redisCommandTotal.inc({ command: cmd });
+
+        try {
+          return await orig.apply(target, args);
+        } catch (e) {
+          metrics?.redisCommandErrors.inc({ command: cmd });
+          logger.warn(`Redis command ${cmd} failed`, e);
+          throw e;
+        } finally {
+          endTimer?.();
+        }
+      };
+    },
+  });
+};

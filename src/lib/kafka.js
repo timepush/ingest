@@ -1,99 +1,95 @@
-// kafkaBatcher.js
-// In-memory batching wrapper around KafkaJS producer supporting data and error topics with gzip compression
-import "dotenv/config";
 import { Kafka, CompressionTypes, logLevel } from "kafkajs";
+import env from "@/env";
 
-// Load environment-configurable defaults
-const { KAFKA_CLIENT_ID = "timepush-ingest-api", KAFKA_BROKER = "localhost:9092", KAFKA_CONN_TIMEOUT = "1000", KAFKA_REQ_TIMEOUT = "1000", KAFKA_RETRIES = "0", KAFKA_DATA_TOPIC, KAFKA_ERROR_TOPIC } = process.env;
+const BUFFER_SIZE = 500;
+const FLUSH_INTERVAL = 300; // ms
 
-if (!KAFKA_DATA_TOPIC || !KAFKA_ERROR_TOPIC) {
-  throw new Error("Both KAFKA_DATA_TOPIC and KAFKA_ERROR_TOPIC must be defined in environment");
+let buffer = [];
+let flushTimer = null;
+let producer = null;
+let logger = console;
+let metrics = null;
+
+/**
+ * Initialize the Kafka producer and inject logger + metrics
+ */
+export async function initKafka({ logger: customLogger, metrics: customMetrics } = {}) {
+  if (producer) return;
+  if (customLogger) logger = customLogger;
+  if (customMetrics) metrics = customMetrics;
+
+  const kafka = new Kafka({
+    clientId: env.KAFKA_CLIENT_ID,
+    brokers: env.KAFKA_BROKER.split(","),
+    logLevel: logLevel.ERROR,
+    retry: { retries: 0 },
+    requestTimeout: 1000,
+    connectionTimeout: 1000,
+  });
+
+  producer = kafka.producer({ allowAutoTopicCreation: false });
+  await producer.connect();
+  console.info("✅ Connected to Kafka producer");
 }
 
-// Initialize Kafka client and producer
-const kafka = new Kafka({
-  clientId: KAFKA_CLIENT_ID,
-  brokers: [KAFKA_BROKER],
-  connectionTimeout: Number(KAFKA_CONN_TIMEOUT),
-  requestTimeout: Number(KAFKA_REQ_TIMEOUT),
-  retry: { retries: Number(KAFKA_RETRIES) },
-  logLevel: logLevel.ERROR,
-});
+export function enqueue(data) {
+  if (!producer) throw new Error("Kafka producer not initialized. Call initKafka() first.");
+  if (Array.isArray(data)) throw new Error("Data must be a single object, not an array");
 
-const producer = kafka.producer({ allowAutoTopicCreation: false });
-let isProducerConnected = false;
+  buffer.push({ value: JSON.stringify(data) });
+  metrics?.kafkaBufferSizeGauge.set(buffer.length);
 
-// Batch buffers and controls for data and error topics
-const dataBuffer = [];
-const errorBuffer = [];
-const MAX_BATCH_SIZE = 100; // messages per batch
-const MAX_BATCH_TIME_MS = 200; // ms before flush if batch not full
+  if (buffer.length === 1) {
+    flushTimer = setTimeout(flush, FLUSH_INTERVAL);
+  }
 
-let dataFlushTimer = null;
-let errorFlushTimer = null;
-
-// Ensure single producer connection
-export async function ensureConnected() {
-  if (!isProducerConnected) {
-    await producer.connect();
-    isProducerConnected = true;
+  if (buffer.length >= BUFFER_SIZE) {
+    return flush();
   }
 }
 
-// Generic flush helper (fix timer management)
-async function flushBatch(topic, buffer, timerName) {
-  if (timerName === "data") {
-    if (dataFlushTimer) {
-      clearTimeout(dataFlushTimer);
-      dataFlushTimer = null;
-    }
-  } else if (timerName === "error") {
-    if (errorFlushTimer) {
-      clearTimeout(errorFlushTimer);
-      errorFlushTimer = null;
-    }
+export async function flush() {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
   }
   if (buffer.length === 0) return;
-  const batch = buffer.splice(0, buffer.length);
+
+  const batch = buffer;
+  buffer = [];
+  metrics?.kafkaBufferSizeGauge.set(0);
+  metrics?.kafkaFlushCount.inc();
+
+  const start = performance.now();
+  await safeSend(batch);
+  metrics?.kafkaFlushDuration.observe(performance.now() - start);
+}
+
+export async function shutdown() {
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  await flush();
+  if (producer) {
+    await producer.disconnect();
+    producer = null;
+  }
+}
+
+async function safeSend(batch) {
   try {
     await producer.send({
-      topic,
-      compression: CompressionTypes.GZIP,
+      topic: env.KAFKA_TOPIC,
       messages: batch,
+      compression: CompressionTypes.GZIP,
+      acks: 1,
     });
+    logger.info(`✅ Sent ${batch.length} messages to Kafka topic ${env.KAFKA_TOPIC}`);
+    metrics?.kafkaMessagesProduced.inc(batch.length);
+    metrics?.kafkaBatchSize.observe(batch.length);
   } catch (err) {
-    console.error(`Failed to send Kafka batch to ${topic}:`, err);
-  }
-}
-
-// Exported: queue a data message
-export async function sendToData(payload) {
-  await ensureConnected();
-  dataBuffer.push({ value: JSON.stringify(payload) });
-  if (dataBuffer.length >= MAX_BATCH_SIZE) {
-    await flushBatch(KAFKA_DATA_TOPIC, dataBuffer, "data");
-  } else if (!dataFlushTimer) {
-    dataFlushTimer = setTimeout(() => flushBatch(KAFKA_DATA_TOPIC, dataBuffer, "data"), MAX_BATCH_TIME_MS);
-  }
-}
-
-// Exported: queue an error message
-export async function sendToError(payload) {
-  await ensureConnected();
-  errorBuffer.push({ value: JSON.stringify(payload) });
-  if (errorBuffer.length >= MAX_BATCH_SIZE) {
-    await flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, "error");
-  } else if (!errorFlushTimer) {
-    errorFlushTimer = setTimeout(() => flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, "error"), MAX_BATCH_TIME_MS);
-  }
-}
-
-// Flush remaining messages and disconnect producer
-export async function closeProducer() {
-  await flushBatch(KAFKA_DATA_TOPIC, dataBuffer, "data");
-  await flushBatch(KAFKA_ERROR_TOPIC, errorBuffer, "error");
-  if (isProducerConnected) {
-    await producer.disconnect();
-    isProducerConnected = false;
+    metrics?.kafkaMessagesFailed.inc(batch.length);
+    logger.error({ err, batch }, "Kafka batch send failed");
   }
 }
