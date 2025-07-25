@@ -2,8 +2,8 @@ import { z } from "zod";
 
 const EnvSchema = z.object({
   NODE_ENV: z.string().default("development"),
-  APP_PORT: z.coerce.number().default(5000),
-  APP_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]),
+  INGEST_PORT: z.coerce.number().default(5000),
+  INGEST_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]),
   DATABASE_URL: z.url(),
 
   REDIS_HOST: z.string(),

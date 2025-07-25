@@ -9,7 +9,7 @@ const transport = {
 
 const logger = pino(
   {
-    level: env.APP_LOG_LEVEL || "info",
+    level: env.INGEST_LOG_LEVEL || "info",
     transport: env.NODE_ENV === "production" ? undefined : transport,
     timestamp: pino.stdTimeFunctions.unixTime, // hh:mm:ss
   },

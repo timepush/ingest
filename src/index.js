@@ -11,7 +11,7 @@ await initDb();
 await initRedis({ logger, metrics: redisMetrics });
 await initKafka({ logger, metrics: kafkaMetrics });
 
-const port = 5000;
+const port = env.INGEST_PORT || 5000;
 const hostname = "0.0.0.0";
 console.log(`Server is running on port http://localhost:${port}`);
 

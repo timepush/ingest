@@ -8,8 +8,8 @@ Create a `.env` file or set the following environment variables:
 
 ```
 NODE_ENV=production
-APP_PORT=5000
-APP_LOG_LEVEL=error
+INGEST_PORT=5000
+INGEST_LOG_LEVEL=error
 
 REDIS_HOST=localhost
 REDIS_PORT=6379
