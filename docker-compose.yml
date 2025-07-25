@@ -6,7 +6,7 @@ services:
     env_file:
       - .env.docker
     expose:
-      - "3000"
+      - "5000"
   nginx:
     image: nginx:1.25
     container_name: nginx_lb
