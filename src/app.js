@@ -9,17 +9,9 @@ import { auth } from "@/middlewares/auth";
 import onError from "@/middlewares/error-handler";
 import notFound from "@/middlewares/not-found";
 import ingestRoute from "@/features/ingest";
-import { createKafkaMetrics } from "@/lib/kafkaMetrics";
-import { createRedisMetrics } from "@/lib/redisMetrics";
-import { Counter, Registry } from "prom-client";
-const registry = new Registry();
+import { registerMetrics, printMetrics } from "@/lib/metrics";
+
 const app = new Hono({ strict: false });
-const kafkaMetrics = createKafkaMetrics(registry);
-const redisMetrics = createRedisMetrics(registry);
-const { printMetrics, registerMetrics } = prometheus({
-  registry,
-  collectDefaultMetrics: true,
-});
 
 app.use("*", cors({ origin: "*" }));
 app.use(requestId());
@@ -33,4 +25,4 @@ app.use("/ingest/*", auth);
 app.route("/ingest", ingestRoute);
 app.notFound(notFound);
 app.onError(onError);
-export { app, kafkaMetrics, redisMetrics };
+export default app;

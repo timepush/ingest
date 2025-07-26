@@ -3,8 +3,9 @@ import { initRedis } from "@/lib/redis";
 import { initKafka } from "@/lib/kafka";
 import { initDb } from "@/lib/db";
 import logger from "@/lib/logger";
+import { redisMetrics, kafkaMetrics } from "@/lib/metrics";
 
-import { app, kafkaMetrics, redisMetrics } from "@/app";
+import app from "@/app";
 import env from "@/env";
 
 await initDb();
