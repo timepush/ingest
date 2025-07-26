@@ -33,17 +33,33 @@ DATABASE_URL=postgresql://timepush:timepush@localhost:5432/timepush
    ```
 3. The API will be available at `http://localhost:3000`.
 
-## Running with Docker
-
-1. Build the Docker image:
-   ```sh
-   docker build -t timepush-ingest .
-   ```
-2. Run the container:
-   ```sh
-   docker run --env-file .env -p 3000:3000 timepush-ingest
-   ```
-
 ## Endpoints
 
-- `POST /ingest` — Ingest data (see API docs or code for payload format)
+- `POST /ingest/raw`
+
+  ### Authentication
+
+  This endpoint requires the following headers:
+
+  - `Authorization: Bearer <client_secret>`
+  - `X-Client-ID: <client_id>`
+
+  Example HTTP request:
+
+  ```http
+  POST /ingest/raw HTTP/1.1
+  Host: localhost:3000
+  Authorization: Bearer my-secret
+  X-Client-ID: my-client-id
+  Content-Type: application/json
+
+  {
+    "timestamp": "2025-07-26T12:34:56.789Z",
+    "value": 42.5,
+    "is_valid": true
+  }
+  ```
+
+  - `timestamp`: string, ISO 8601 format, must end with `Z` (UTC)
+  - `value`: number
+  - `is_valid`: boolean
