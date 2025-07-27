@@ -34,7 +34,7 @@ export let options = {
 };
 
 export default function () {
-  const url = "http://localhost:5000/ingest/raw";
+  const url = "http://localhost/ingest/raw";
   const payload = JSON.stringify({
     timestamp: new Date().toISOString(),
     value: Math.random() * 100,

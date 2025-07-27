@@ -9,7 +9,9 @@ import { auth } from "@/middlewares/auth";
 import onError from "@/middlewares/error-handler";
 import notFound from "@/middlewares/not-found";
 import ingestRoute from "@/features/ingest";
-import { registerMetrics, printMetrics } from "@/lib/metrics";
+const { printMetrics, registerMetrics } = prometheus({
+  collectDefaultMetrics: true,
+});
 
 const app = new Hono({ strict: false });
 

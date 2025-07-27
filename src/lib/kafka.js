@@ -1,5 +1,6 @@
 import { Kafka, CompressionTypes, logLevel } from "kafkajs";
 import env from "@/env";
+import logger from "@/lib/logger";
 
 const BUFFER_SIZE = 500;
 const FLUSH_INTERVAL = 300; // ms
@@ -7,16 +8,12 @@ const FLUSH_INTERVAL = 300; // ms
 let buffer = [];
 let flushTimer = null;
 let producer = null;
-let logger = console;
-let metrics = null;
 
 /**
- * Initialize the Kafka producer and inject logger + metrics
+ * Initialize the Kafka producer and inject logger
  */
-export async function initKafka({ logger: customLogger, metrics: customMetrics } = {}) {
+export async function initKafka() {
   if (producer) return;
-  if (customLogger) logger = customLogger;
-  if (customMetrics) metrics = customMetrics;
 
   const kafka = new Kafka({
     clientId: env.KAFKA_CLIENT_ID,
@@ -37,7 +34,6 @@ export function enqueue(data) {
   if (Array.isArray(data)) throw new Error("Data must be a single object, not an array");
 
   buffer.push({ value: JSON.stringify(data) });
-  metrics?.kafkaBufferSizeGauge.set(buffer.length);
 
   if (buffer.length === 1) {
     flushTimer = setTimeout(flush, FLUSH_INTERVAL);
@@ -57,12 +53,8 @@ export async function flush() {
 
   const batch = buffer;
   buffer = [];
-  metrics?.kafkaBufferSizeGauge.set(0);
-  metrics?.kafkaFlushCount.inc();
 
-  const start = performance.now();
   await safeSend(batch);
-  metrics?.kafkaFlushDuration.observe(performance.now() - start);
 }
 
 export async function shutdown() {
@@ -86,10 +78,7 @@ async function safeSend(batch) {
       acks: 1,
     });
     logger.info(`✅ Sent ${batch.length} messages to Kafka topic ${env.KAFKA_TOPIC}`);
-    metrics?.kafkaMessagesProduced.inc(batch.length);
-    metrics?.kafkaBatchSize.observe(batch.length);
   } catch (err) {
-    metrics?.kafkaMessagesFailed.inc(batch.length);
     logger.error({ err, batch }, "Kafka batch send failed");
   }
 }
