@@ -2,7 +2,8 @@
   "name": "ingest",
   "type": "module",
   "scripts": {
-    "dev": "bun run --hot src/index.js"
+    "dev": "bun run --hot src/index.js",
+    "build": "bun build src/index.js --target bun --outdir dist"
   },
   "dependencies": {
     "@hono/node-server": "^1.17.1",
